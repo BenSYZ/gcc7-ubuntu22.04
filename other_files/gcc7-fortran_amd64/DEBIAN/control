@@ -1,0 +1,12 @@
+Package: gcc7-fortran
+Version: 7.5.0-4arch
+Architecture: amd64
+Maintainer: Ben <bensongsyz@gmail.com>
+Installed-Size: 170760
+Depends: gcc7(=7.5.0-4arch)
+Provides: c-compiler
+Section: devel
+Priority: optional
+Homepage: http://gcc.gnu.org/
+Description: Fortran front-end for GCC (7.x.x)
+            For Ubuntu 22.04
