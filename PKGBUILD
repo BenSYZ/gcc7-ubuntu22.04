@@ -1,3 +1,14 @@
+
+# build depends: build-essential, libgmp-dev, m4, zlib1g-dev, python3
+set -e
+shopt -s expand_aliases
+alias make="make -j$(nproc)"
+alias python="python3"
+
+if ! [ -e /usr/lib/x86_64-linux-gnu/libquadmath.so ];then
+    ln -s libquadmath.so.0 /usr/lib/x86_64-linux-gnu/libquadmath.so
+fi
+
 # Maintainer: David (ReyJamonico) < david at rjamo dot dev >
 # Contributor: Viktor Drobot (aka dviktor) linux776 [at] gmail [dot] com
 # Contributor: Sven-Hendrik Haase <svenstaro@gmail.com>
@@ -31,6 +42,7 @@ sha256sums=('b81946e7f01f90528a1f7352ab08cc602b9ccc05d4e44da4bd501c5a189ee661'
             'ee25895428a9dbd3217de109a043c54cb9f51e6a04a260be088a619c0f677e68')
 
 _svnrev=266882
+CHOST=x86_64-linux-gnu
 _svnurl=svn://gcc.gnu.org/svn/gcc/branches/gcc-${_majorver}-branch
 _libdir=usr/lib/gcc/$CHOST/${pkgver%%+*}
 
@@ -78,7 +90,7 @@ prepare() {
 }
 
 build() {
-  export LD_PRELOAD=/usr/lib/libstdc++.so
+  export LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/11/libstdc++.so
 
   cd gcc-build
 
@@ -94,12 +106,15 @@ build() {
     CXXFLAGS=${CXXFLAGS/$option/}
   done
 
+#echo ${_pkgver}
+#7
+#dep libmpc-dev zlib1g-dev
+
   "$srcdir/gcc/configure" --prefix=/usr \
       --libdir=/usr/lib \
       --libexecdir=/usr/lib \
       --mandir=/usr/share/man \
       --infodir=/usr/share/info \
-      --with-bugurl=https://bugs.archlinux.org/ \
       --enable-languages=c,c++,fortran,lto \
       --disable-multilib \
       --enable-shared \
@@ -124,7 +139,8 @@ build() {
       --enable-default-pie \
       --enable-default-ssp \
       --program-suffix=-${_pkgver} \
-      --enable-version-specific-runtime-libs
+      --enable-version-specific-runtime-libs \
+      --host=x86_64-linux-gnu
 
   make
 
@@ -137,7 +153,7 @@ package_gcc7-libs() {
   depends=('glibc>=2.27')
   options+=(!strip)
 
-  export LD_PRELOAD=/usr/lib/libstdc++.so
+  export LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/11/libstdc++.so
 
   cd gcc-build
   make -C $CHOST/libgcc DESTDIR="$pkgdir" install-shared
@@ -169,7 +185,7 @@ package_gcc7() {
   depends=("gcc7-libs=$pkgver-$pkgrel" 'binutils>=2.28' libmpc)
   options+=(staticlibs)
 
-  export LD_PRELOAD=/usr/lib/libstdc++.so
+  export LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/11/libstdc++.so
 
   cd gcc-build
 
@@ -227,7 +243,7 @@ package_gcc7-fortran() {
   depends=("gcc7=$pkgver-$pkgrel")
   options=('!emptydirs')
 
-  export LD_PRELOAD=/usr/lib/libstdc++.so
+  export LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/11/libstdc++.so
 
   cd gcc-build
   make -C $CHOST/libgfortran DESTDIR=$pkgdir install-cafexeclibLTLIBRARIES \
@@ -242,3 +258,57 @@ package_gcc7-fortran() {
   install -d ${pkgdir}/usr/share/licenses/$pkgname
   ln -s ../gcc-libs/RUNTIME.LIBRARY.EXCEPTION ${pkgdir}/usr/share/licenses/$pkgname/
 }
+
+work_dir=$PWD
+pkgdir=$work_dir/pkg
+srcdir=$work_dir/src
+
+
+rm -rf $pkgdir
+rm -rf $srcdir
+mkdir -p $pkgdir
+mkdir -p $srcdir
+
+cd $srcdir
+
+#TODO
+#for f in $source;do
+#    ln -s ../$(basename $f) .
+#done
+ln -s ../gcc-${pkgver}.tar.xz   .
+ln -s ../isl-${_islver}.tar.bz2 .
+ln -s ../bz84080.patch          .
+ln -s ../libsanitizer.patch     .
+
+tar -xJf gcc-${pkgver}.tar.xz
+tar -xjf isl-${_islver}.tar.bz2
+
+cd "$srcdir"
+echo prepare
+prepare
+
+cd "$srcdir"
+echo build
+build
+
+
+[ -e "$pkgdir" ] && rm -r "$pkgdir"
+mkdir $pkgdir
+cd "$srcdir"
+echo package_gcc7
+package_gcc7
+mv "$pkgdir" "$pkgdir".gcc7
+
+mkdir $pkgdir
+cd "$srcdir"
+echo package_gcc7-libs
+package_gcc7-libs
+mv "$pkgdir" "$pkgdir".gcc7-libs
+rm "$pkgdir".gcc7-libs/usr/lib/gcc/x86_64-linux-gnu/7.5.0/libstdc++.a
+rm "$pkgdir".gcc7-libs/usr/lib/gcc/x86_64-linux-gnu/7.5.0/libstdc++.la
+
+mkdir $pkgdir
+cd "$srcdir"
+echo package_gcc7-fortran
+package_gcc7-fortran
+mv "$pkgdir" "$pkgdir".gcc7-fortran
